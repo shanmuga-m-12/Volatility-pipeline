@@ -161,6 +161,27 @@ def compute_iv(df):
     return df_
 
 
+def plot_iv_smile(df):
+    maturities = sorted(df['Maturity'].unique())
+    
+    n_cols = 3
+    nrows = np.ceil(len(maturities)/ n_cols).astype(int)
+    
+    fig, axes = plt.subplots(nrows, n_cols, figsize = (20,10))
+    axes = axes.flatten()
+    
+    for ax, T in zip(axes, maturities):
+        tmp = df[df['Maturity']==T]
+    
+        ax.scatter(tmp['k'], tmp['IV'])
+        ax.set_title(f'IV smile | T = {T:.3f} years | {T*365:.1f} days')
+        ax.set_xlabel('log-moneyness')
+        ax.set_ylabel('Implied Volatility')
+        ax.grid(True)
+
+    plt.tight_layout()
+    plt.show()
+
 
 def plot_raw_iv(df):
     k = df['k'].values
@@ -185,3 +206,74 @@ def plot_raw_iv(df):
     ax.set_zlabel(' Implied volatility ')
     ax.set_title(' Raw market - Implied voaltility Surface')
     plt.show()
+
+
+def surface_statistics(df):
+    stats = {}
+
+    stats["Total Options"] = len(df)
+    stats["Unique Maturities"] = df["Maturity"].nunique()
+    stats["Unique Strikes"] = df["Strike"].nunique()
+
+    stats["Mean IV"] = df["IV"].mean()
+    stats["Median IV"] = df["IV"].median()
+    stats["Std IV"] = df["IV"].std()
+
+    stats["Min IV"] = df["IV"].min()
+    stats["Max IV"] = df["IV"].max()
+
+    stats["Min Strike"] = df["Strike"].min()
+    stats["Max Strike"] = df["Strike"].max()
+
+    stats["Min k"] = df["k"].min()
+    stats["Max k"] = df["k"].max()
+    
+
+    stats["Shortest Maturity"] = df["Maturity"].min()
+    stats["Longest Maturity"] = df["Maturity"].max()
+
+    stats["Missing IV"] = df["IV"].isna().sum()
+    stats["Duplicate (T,K)"] = (df.duplicated(subset=["Maturity", "Strike", "OptionType"]).sum())
+
+# ATM IV
+    atm_iv = (df.loc[df.groupby("Maturity")["k"].apply(lambda x: x.abs().idxmin())]
+              [["Maturity", "Strike", "IV"]].rename(columns={"IV": "ATM_IV"}))
+
+# Summary Table
+    maturity_summary = (df.groupby("Maturity").agg(Strikes=("Strike", "nunique"),
+                                                   Options=("IV", "count"),
+                                                   Mean_IV=("IV", "mean"),
+                                                   Std_IV=("IV", "std"),
+                                                   Min_IV=("IV", "min"),
+                                                   Max_IV=("IV", "max"),
+                                                   Min_k = ('IV', 'min'),
+                                                   Max_k = ("IV", 'max')).round(4))
+    maturity_summary["Smile Width"] = (maturity_summary['Max_k'] - maturity_summary['Min_k']).round(4)
+
+# Final print
+    print("=" * 70)
+    print("RAW IMPLIED VOLATILITY SURFACE SUMMARY")
+    print("=" * 70)
+
+    for k, v in stats.items():
+        if isinstance(v, float):
+            print(f"{k:<25}: {v:.6f}")
+        else:
+            print(f"{k:<25}: {v}")
+
+    print("\nATM IMPLIED VOLATILITY")
+    print("-" * 70)
+    print(atm_iv.to_string(index=False))
+
+    print("\nMATURITY SUMMARY")
+    print("-" * 70)
+    print(maturity_summary)
+
+    return {"summary": stats, "atm_iv": atm_iv, "maturity_summary": maturity_summary,}
+
+def iv_plots(df):
+    df_iv = compute_iv(df)
+    maturity_wise_plot = plot_iv_smile(df_iv)
+    iv_surface = plot_raw_iv(df_iv)
+    surface_stats = surface_statistics(df_iv)
+    return df_iv
