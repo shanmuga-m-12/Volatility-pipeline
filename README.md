@@ -1,6 +1,6 @@
-## A Structured Volatility Research pipeline
+# A Structured Volatility Research pipeline
 
-# Part 1:  Implied Volatility Extraction
+## Part 1:  Implied Volatility Extraction
 Using Hybrid approach - Newton Raphson and Brent's Optimization
 Includes:
 1. Data preparation
